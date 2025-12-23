@@ -20,23 +20,20 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Debug repo structure
+      - name: Debug working directory
         run: |
           pwd
           ls -la
-          ls -la services
-          ls -la services/workflow-service
+          ls -la cmd
+          ls -la internal
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: services/workflow-service/go.mod
 
-      - name: Go version
-        run: go version
-
-      - name: Go mod tidy
-        run: go mod tidy
+      - name: Download dependencies
+        run: go mod download
 
       - name: Run tests
         run: go test ./... -v
