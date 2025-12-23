@@ -9,9 +9,11 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test
+    name: Build & Test Services
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
     steps:
       # ----------------------------
       # Checkout source code
@@ -25,7 +27,7 @@ jobs:
         with:
           path: |
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('services/workflow-service/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('services/${{ matrix.service }}/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -38,32 +40,34 @@ jobs:
 
       # ----------------------------
       # Debug: list files (optional)
-      - name: List workflow-service files
-        run: ls -R ./services/workflow-service
+      - name: List service files
+        run: ls -R ./services/${{ matrix.service }}
 
       # ----------------------------
       # Install dependencies
       - name: Go mod tidy
-        working-directory: ./services/workflow-service
+        working-directory: ./services/${{ matrix.service }}
         run: go mod tidy
 
       # ----------------------------
       # Run tests
       - name: Run tests
-        working-directory: ./services/workflow-service
+        working-directory: ./services/${{ matrix.service }}
         run: go test ./... -v
 
       # ----------------------------
       # Build binary
       - name: Build binary
-        working-directory: ./services/workflow-service
+        working-directory: ./services/${{ matrix.service }}
         run: go build -v ./cmd/main.go
 
   docker:
-    name: Docker Build & Push
+    name: Docker Build & Push Services
     needs: build-test
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
     steps:
       # ----------------------------
       # Checkout source code
@@ -82,13 +86,13 @@ jobs:
       # Build Docker image
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest ./services/workflow-service
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
-                     ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest ./services/${{ matrix.service }}
+          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
 
       # ----------------------------
       # Push Docker image
       - name: Push Docker Image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
