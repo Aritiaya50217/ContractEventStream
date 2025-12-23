@@ -9,31 +9,28 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test Services
+    name: Build & Test workflow-service
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        service: [workflow-service]
 
     defaults:
       run:
-        working-directory: services/${{ matrix.service }}
+        working-directory: services/workflow-service
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Debug path
+      - name: Debug repo structure
         run: |
           pwd
           ls -la
-          ls -la services/${{ matrix.service }}
+          ls -la services
+          ls -la services/workflow-service
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: services/${{ matrix.service }}/go.mod
+          go-version-file: services/workflow-service/go.mod
 
       - name: Go version
         run: go version
@@ -48,13 +45,9 @@ jobs:
         run: go build -v ./cmd/main.go
 
   docker:
-    name: Docker Build & Push
+    name: Docker Build & Push workflow-service
     needs: build-test
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        service: [workflow-service]
 
     steps:
       - name: Checkout source
@@ -69,11 +62,11 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
-            -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }} \
-            services/${{ matrix.service }}
+            -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }} \
+            services/workflow-service
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
