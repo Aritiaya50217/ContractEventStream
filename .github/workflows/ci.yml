@@ -13,11 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ----------------------------
+      # Checkout source code
       - name: Checkout source
         uses: actions/checkout@v4
 
       # ----------------------------
-      # Cache Go modules (ชี้ไปที่ go.sum ของ service)
+      # Cache Go modules
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -26,20 +28,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      # ----------------------------
+      # Setup Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
 
       # ----------------------------
+      # Debug: list files (optional)
+      - name: List workflow-service files
+        run: ls -R ./services/workflow-service
+
+      # ----------------------------
+      # Install dependencies
       - name: Go mod tidy
         working-directory: ./services/workflow-service
         run: go mod tidy
 
+      # ----------------------------
+      # Run tests
       - name: Run tests
         working-directory: ./services/workflow-service
         run: go test ./... -v
 
+      # ----------------------------
+      # Build binary
       - name: Build binary
         working-directory: ./services/workflow-service
         run: go build -v ./cmd/main.go
