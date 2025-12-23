@@ -1,0 +1,57 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:   
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Go mod tidy
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./... -v
+
+      - name: Build binary
+        run: go build -v ./cmd/main.go
+
+  docker:
+    name: Docker Build & Push
+    needs: build-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
