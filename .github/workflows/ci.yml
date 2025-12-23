@@ -16,13 +16,25 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Debug files
-        run: ls -R ./services/workflow-service
+      # ----------------------------
+      # Cache Go modules
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('services/workflow-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
+      # ----------------------------
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
+
+      - name: List files (debug)
+        run: ls -R ./services/workflow-service
 
       - name: Go mod tidy
         working-directory: ./services/workflow-service
