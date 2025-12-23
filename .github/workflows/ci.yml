@@ -13,11 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [workflow-service]
+        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
     steps:
+      # ----------------------------
+      # Checkout source code
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # Cache Go modules
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -25,22 +29,32 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles(format('services/{0}/go.sum', matrix.service)) }}
           restore-keys: ${{ runner.os }}-go-
 
+      # ----------------------------
+      # Setup Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
 
+      # ----------------------------
+      # Debug: list files (optional)
       - name: List service files
         run: ls -R ./services/${{ matrix.service }}
 
+      # ----------------------------
+      # Install dependencies
       - name: Go mod tidy
         working-directory: ./services/${{ matrix.service }}
         run: go mod tidy
 
+      # ----------------------------
+      # Run tests
       - name: Run tests
         working-directory: ./services/${{ matrix.service }}
         run: go test ./... -v
 
+      # ----------------------------
+      # Build binary
       - name: Build binary
         working-directory: ./services/${{ matrix.service }}
         run: go build -v ./cmd/main.go
@@ -51,23 +65,31 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [workflow-service]
+        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
     steps:
+      # ----------------------------
+      # Checkout source code
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # Docker login
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # ----------------------------
+      # Build Docker image
       - name: Build Docker Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest ./services/${{ matrix.service }}
           docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
                      ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
 
+      # ----------------------------
+      # Push Docker image
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
