@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
+        service: [workflow-service]  # ถ้ามี service อื่น เพิ่มชื่อที่นี่
     steps:
       # ----------------------------
       # Checkout source code
@@ -21,13 +21,21 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------
+      # Debug: ดู path จริงบน runner
+      - name: Debug repo files
+        run: |
+          echo "Current directory: $PWD"
+          ls -R $PWD
+
+      # ----------------------------
       # Cache Go modules
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles(format('services/{0}/go.sum', matrix.service)) }}
-          restore-keys: ${{ runner.os }}-go-
+          key: ${{ runner.os }}-go-${{ hashFiles('services/${{ matrix.service }}/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       # ----------------------------
       # Setup Go
@@ -37,26 +45,21 @@ jobs:
           go-version: "1.24"
 
       # ----------------------------
-      # Debug: list files (optional)
-      - name: List service files
-        run: ls -R ./services/${{ matrix.service }}
-
-      # ----------------------------
       # Install dependencies
       - name: Go mod tidy
-        working-directory: ./services/${{ matrix.service }}
+        working-directory: ${{ github.workspace }}/services/${{ matrix.service }}
         run: go mod tidy
 
       # ----------------------------
       # Run tests
       - name: Run tests
-        working-directory: ./services/${{ matrix.service }}
+        working-directory: ${{ github.workspace }}/services/${{ matrix.service }}
         run: go test ./... -v
 
       # ----------------------------
       # Build binary
       - name: Build binary
-        working-directory: ./services/${{ matrix.service }}
+        working-directory: ${{ github.workspace }}/services/${{ matrix.service }}
         run: go build -v ./cmd/main.go
 
   docker:
@@ -65,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [workflow-service]  # เพิ่มชื่อ service อื่น ๆ ถ้ามี
+        service: [workflow-service]  # ถ้ามี service อื่น เพิ่มชื่อที่นี่
     steps:
       # ----------------------------
       # Checkout source code
