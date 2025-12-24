@@ -9,78 +9,84 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test Services
+    name: Build & Test Workflow Service
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [workflow-service]
 
     steps:
       # ----------------------------
-      # Checkout source code
-      - name: Checkout source
+      # Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       # ----------------------------
-      # Setup Go 1.24 (fallback 1.22)
-      - name: Set up Go 1.24
+      # Debug: list files
+      - name: List repo files
+        run: |
+          echo "Root files:"
+          ls -l
+          echo "services/workflow-service files:"
+          ls -l services/workflow-service
+          echo "Check go.mod exists:"
+          if [ -f services/workflow-service/go.mod ]; then
+            echo "✅ go.mod exists"
+          else
+            echo "❌ go.mod NOT found"
+          fi
+
+      # ----------------------------
+      # Set up Go 1.24 with fallback
+      - name: Set up Go 1.24 (primary)
         id: go124
         uses: actions/setup-go@v5
         continue-on-error: true
         with:
           go-version: "1.24"
 
-      - name: Set up Go 1.22 fallback
+      - name: Fallback Go 1.22
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
           go-version: "1.22.x"
 
-      - name: Check Go version
+      - name: Go version
         run: go version
 
       # ----------------------------
-      # Cache Go modules
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('services/${{ matrix.service }}/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      # ----------------------------
       # Download dependencies
-      - name: Go mod tidy
+      - name: Go mod tidy + download
         working-directory: services/workflow-service
-        run: go mod tidy
-
-      - name: Download Go dependencies
-        working-directory: services/workflow-service
-        run: go mod download
+        run: |
+          echo "PWD: $(pwd)"
+          echo "Listing files in current directory:"
+          ls -l
+          go mod tidy
+          go mod download
+          echo "Go modules downloaded"
 
       # ----------------------------
       # Run tests
       - name: Run tests
-        working-directory: services/${{ matrix.service }}
-        run: go test ./... -v
+        working-directory: services/workflow-service
+        run: |
+          echo "Running tests..."
+          go test ./... -v
 
       # ----------------------------
       # Build binary
       - name: Build binary
-        working-directory: services/${{ matrix.service }}
-        run: go build -v -o workflow-service ./cmd/main.go
+        working-directory: services/workflow-service
+        run: |
+          echo "Building binary..."
+          go build -v -o workflow-service ./cmd/main.go
+          echo "Binary build complete"
 
   docker:
     name: Docker Build & Push
     needs: build-test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [workflow-service]
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Docker login
@@ -89,14 +95,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker Image
-        working-directory: services/${{ matrix.service }}
+      - name: Build Docker image
+        working-directory: services/workflow-service
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
-                     ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+          echo "Building Docker image..."
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
 
-      - name: Push Docker Image
+      - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+          echo "Pushing Docker image..."
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
