@@ -15,15 +15,25 @@ jobs:
     steps:
       # ----------------------------
       # Checkout source
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       # ----------------------------
-      # Set up Go 1.24
+      # Setup Go 1.24 (primary)
       - name: Set up Go 1.24
+        id: go124
+        uses: actions/setup-go@v5
+        continue-on-error: true
+        with:
+          go-version: "1.24"
+
+      # ----------------------------
+      # Fallback to Go 1.22 if 1.24 fails
+      - name: Set up Go 1.22 (fallback)
+        if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24
+          go-version: "1.22.x"
 
       # ----------------------------
       # Verify Go version
@@ -31,36 +41,30 @@ jobs:
         run: go version
 
       # ----------------------------
-      # Tidy modules
-      - name: Go mod tidy
-        working-directory: ./services/workflow-service
-        run: go mod tidy
-
-      # ----------------------------
       # Download dependencies
       - name: Download Go dependencies
-        working-directory: ./services/workflow-service
-        run: go mod download
+        working-directory: services/workflow-service
+        run: go mod tidy
 
       # ----------------------------
       # Run tests
       - name: Run tests
-        working-directory: ./services/workflow-service
+        working-directory: services/workflow-service
         run: go test ./... -v
 
       # ----------------------------
       # Build binary
       - name: Build binary
-        working-directory: ./services/workflow-service
-        run: go build -v -o workflow-service ./cmd/main.go
+        working-directory: services/workflow-service
+        run: go build -v -o workflow-service cmd/main.go
 
   docker:
-    name: Docker Build & Push Workflow Service
+    name: Docker Build & Push
     needs: build-test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Login Docker Hub
@@ -70,7 +74,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker Image
-        working-directory: ./services/workflow-service
+        working-directory: services/workflow-service
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
           docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
