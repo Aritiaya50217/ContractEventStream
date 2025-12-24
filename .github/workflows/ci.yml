@@ -58,19 +58,19 @@ jobs:
       # Download dependencies
       - name: Download Go dependencies
         working-directory: services/${{ matrix.service }}
-        run: go mod download
+        run: go mod download -C services/workflow-service
 
       # ----------------------------
       # Run tests
       - name: Run tests
         working-directory: services/${{ matrix.service }}
-        run: go test ./... -v
+        run: go test ./... -v -C services/workflow-service
 
       # ----------------------------
       # Build binary
       - name: Build binary
         working-directory: services/${{ matrix.service }}
-        run: go build -v ./cmd/main.go
+        run: go build -v ./cmd/main.go -C services/workflow-service
 
   docker:
     name: Docker Build & Push Services
