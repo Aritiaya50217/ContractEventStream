@@ -7,7 +7,6 @@ import (
 	"workflow-service/internal/config"
 	"workflow-service/internal/infrastructure/kafka"
 	"workflow-service/internal/infrastructure/postgres"
-	"workflow-service/internal/interface/consumer"
 	httpHandler "workflow-service/internal/interface/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,34 +20,25 @@ func main() {
 	}
 
 	// Producer
-	kafkaCreateProducer := kafka.NewProducer(
+	kafkaProducer := kafka.NewProducer(
 		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_CREATE_TOPIC"),
-	)
-
-	kafkaApproveProducer := kafka.NewProducer(
-		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_APPROVE_TOPIC"),
+		os.Getenv("KAFKA_TOPIC"),
 	)
 
 	// Consumer
-	kafkaCreateConsumer := consumer.NewWorkflowConsumer(
+	kafkaConsumer := kafka.NewWorkflowConsumer(
 		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_CREATE_TOPIC"),
+		os.Getenv("KAFKA_TOPIC"),
 	)
 
-	kafkaApproveConsumer := consumer.NewWorkflowConsumer(
-		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_APPROVE_TOPIC"),
-	)
-
-	kafkaCreateConsumer.Start()
-	kafkaApproveConsumer.Start()
+	// Start consumer in goroutine
+	go kafkaConsumer.Start()
 
 	db := config.NewPostgresDB()
 	repo := postgres.NewWorkflowRepoPg(db)
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, kafkaCreateProducer)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, kafkaApproveProducer)
+
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, kafkaProducer)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, kafkaProducer)
 
 	handler := httpHandler.NewHandler(createUsecase, approveUsecase)
 

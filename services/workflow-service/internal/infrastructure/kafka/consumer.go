@@ -8,36 +8,34 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type Consumer struct {
+type WorkflowConsumer struct {
 	reader *kafka.Reader
 }
 
-func NewConsumer(broker, topic, groupID string) *Consumer {
-	return &Consumer{
+func NewWorkflowConsumer(broker, topic string) *WorkflowConsumer {
+	return &WorkflowConsumer{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers: []string{broker},
 			Topic:   topic,
-			GroupID: groupID,
+			GroupID: "workflow-service",
 		}),
 	}
 }
 
-func (c *Consumer) Start() {
+func (c *WorkflowConsumer) Start() {
 	go func() {
 		for {
 			msg, err := c.reader.ReadMessage(context.Background())
 			if err != nil {
-				log.Println("error reading kafka message:", err)
+				log.Println("kafka read error : ", err)
 				continue
 			}
+			log.Println("Kafka message : ", string(msg.Value))
 
-			var data map[string]interface{}
-			if err := json.Unmarshal(msg.Value, &data); err != nil {
-				log.Println("error unmarshalling message:", err)
-				continue
+			var event map[string]interface{}
+			if err := json.Unmarshal(msg.Value, &event); err != nil {
+				log.Println("json error : ", err)
 			}
-
-			log.Printf("received message: key=%s value=%v", string(msg.Key), data)
 		}
 	}()
 }
