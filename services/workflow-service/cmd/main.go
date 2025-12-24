@@ -21,22 +21,34 @@ func main() {
 	}
 
 	// Producer
-	kafkaProducer := kafka.NewProducer(
+	kafkaCreateProducer := kafka.NewProducer(
 		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_WORKFLOW_TOPIC"),
+		os.Getenv("KAFKA_CREATE_TOPIC"),
+	)
+
+	kafkaApproveProducer := kafka.NewProducer(
+		os.Getenv("KAFKA_BROKER"),
+		os.Getenv("KAFKA_APPROVE_TOPIC"),
 	)
 
 	// Consumer
-	kafkaConsumer := consumer.NewWorkflowConsumer(
+	kafkaCreateConsumer := consumer.NewWorkflowConsumer(
 		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_WORKFLOW_TOPIC"),
+		os.Getenv("KAFKA_CREATE_TOPIC"),
 	)
-	kafkaConsumer.Start()
+
+	kafkaApproveConsumer := consumer.NewWorkflowConsumer(
+		os.Getenv("KAFKA_BROKER"),
+		os.Getenv("KAFKA_APPROVE_TOPIC"),
+	)
+
+	kafkaCreateConsumer.Start()
+	kafkaApproveConsumer.Start()
 
 	db := config.NewPostgresDB()
 	repo := postgres.NewWorkflowRepoPg(db)
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, kafkaProducer)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo)
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, kafkaCreateProducer)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, kafkaApproveProducer)
 
 	handler := httpHandler.NewHandler(createUsecase, approveUsecase)
 

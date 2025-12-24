@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"log"
+	"os"
 	"workflow-service/internal/domain/entity"
 	"workflow-service/internal/domain/repository"
 	"workflow-service/internal/infrastructure/kafka"
@@ -28,7 +29,7 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 		return err
 	}
 
-	event := entity.WorkflowCreateEvent{
+	event := entity.WorkflowEvent{
 		ID:        workflow.ID,
 		Name:      workflow.Name,
 		Status:    workflow.Status,
@@ -36,7 +37,7 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 		UpdatedAt: workflow.UpdatedAt,
 	}
 
-	if err := uc.producer.Publish("workflow.created", event); err != nil {
+	if err := uc.producer.Publish(os.Getenv("KAFKA_CREATE_TOPIC"), event); err != nil {
 		log.Println("kafka error:", err)
 		return err
 	}
