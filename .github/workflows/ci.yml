@@ -8,41 +8,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ----------------------------
-  # Job: Discover all services
-  get-services:
-    runs-on: ubuntu-latest
-    outputs:
-      services: ${{ steps.set-services.outputs.services }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Detect services
-        id: set-services
-        run: |
-          SERVICES="["
-          for dir in services/*; do
-            if [ -f "$dir/go.mod" ]; then
-              SERVICES="$SERVICES\"$(basename $dir)\","
-            fi
-          done
-          SERVICES="${SERVICES%,}]"
-          echo "Detected services: $SERVICES"
-          echo "::set-output name=services::$SERVICES"
-
-  # ----------------------------
-  # Job: Build & Test
   build-test:
+    name: Build & Test Services
     runs-on: ubuntu-latest
-    needs: get-services
     strategy:
       matrix:
-        service: ${{ fromJSON(needs.get-services.outputs.services) }}
+        service: [workflow-service]
+
     steps:
-      - name: Checkout code
+      # ----------------------------
+      # Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # Setup Go 1.24 (fallback 1.22)
       - name: Set up Go 1.24
         id: go124
         uses: actions/setup-go@v5
@@ -50,7 +30,7 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Fallback Go 1.22
+      - name: Set up Go 1.22 fallback
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
@@ -59,6 +39,8 @@ jobs:
       - name: Check Go version
         run: go version
 
+      # ----------------------------
+      # Cache Go modules
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -67,28 +49,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      # ----------------------------
+      # Download dependencies
       - name: Go mod tidy
         working-directory: services/${{ matrix.service }}
         run: go mod tidy
 
+      - name: Download Go dependencies
+        working-directory: services/${{ matrix.service }}
+        run: go mod download
+
+      # ----------------------------
+      # Run tests
       - name: Run tests
         working-directory: services/${{ matrix.service }}
         run: go test ./... -v
 
+      # ----------------------------
+      # Build binary
       - name: Build binary
         working-directory: services/${{ matrix.service }}
-        run: go build -v -o ${{ matrix.service }} ./cmd/main.go
+        run: go build -v -o workflow-service ./cmd/main.go
 
-  # ----------------------------
-  # Job: Docker Build & Push
   docker:
-    runs-on: ubuntu-latest
+    name: Docker Build & Push
     needs: build-test
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: ${{ fromJSON(needs.get-services.outputs.services) }}
+        service: [workflow-service]
+
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Docker login
@@ -97,11 +89,14 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build & Push Docker
+      - name: Build Docker Image
         working-directory: services/${{ matrix.service }}
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest .
           docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
                      ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+
+      - name: Push Docker Image
+        run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
