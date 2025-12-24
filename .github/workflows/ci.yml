@@ -9,52 +9,36 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test workflow-service
     runs-on: ubuntu-latest
-
     steps:
-      # ----------------------------
-      # Checkout repository
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------
-      # Setup Go 1.24
       - name: Set up Go 1.24
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: 1.24
 
-      # ----------------------------
-      # Verify Go version
-      - name: Check Go version
+      - name: Verify Go version
         run: go version
 
-      # ----------------------------
-      # Download dependencies
-      - name: Download Go dependencies
+      - name: Download dependencies
         working-directory: ./services/workflow-service
         run: go mod tidy
 
-      # ----------------------------
-      # Run tests
       - name: Run tests
         working-directory: ./services/workflow-service
         run: go test ./... -v
 
-      # ----------------------------
-      # Build binary
       - name: Build binary
         working-directory: ./services/workflow-service
         run: go build -v -o workflow-service ./cmd/main.go
 
   docker:
-    name: Docker Build & Push workflow-service
     needs: build-test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Login Docker Hub
@@ -63,14 +47,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker Image
+      - name: Build Docker image
         working-directory: ./services/workflow-service
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
-                     ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
 
-      - name: Push Docker Image
+      - name: Push Docker image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
