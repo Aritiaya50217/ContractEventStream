@@ -52,11 +52,11 @@ jobs:
       # ----------------------------
       # Download dependencies
       - name: Go mod tidy
-        working-directory: services/${{ matrix.service }}
+        working-directory: services/workflow-service
         run: go mod tidy
 
       - name: Download Go dependencies
-        working-directory: services/${{ matrix.service }}
+        working-directory: services/workflow-service
         run: go mod download
 
       # ----------------------------
