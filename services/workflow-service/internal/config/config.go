@@ -34,6 +34,10 @@ func NewPostgresDB() *gorm.DB {
 		log.Fatalf("failed to auto-migrate: %v", err)
 	}
 
+	if err := db.AutoMigrate(&entity.AuditLog{}); err != nil {
+		log.Fatalf("failed to auto-migrate: %v", err)
+	}
+
 	log.Println("database connected and migrated successfully")
 	return db
 }

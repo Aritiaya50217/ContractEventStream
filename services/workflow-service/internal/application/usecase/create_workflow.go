@@ -30,14 +30,16 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 	}
 
 	event := entity.WorkflowEvent{
-		ID:        workflow.ID,
-		Name:      workflow.Name,
-		Status:    workflow.Status,
-		CreatedAt: workflow.CreatedAt,
-		UpdatedAt: workflow.UpdatedAt,
+		WorkflowID:  workflow.ID,
+		Name:        workflow.Name,
+		Status:      workflow.Status,
+		Type:        "WorkflowCreated",
+		Description: "Workflow created by user",
+		CreatedAt:   workflow.CreatedAt,
+		UpdatedAt:   workflow.UpdatedAt,
 	}
 
-	if err := uc.producer.Publish(os.Getenv("KAFKA_CREATE_TOPIC"), event); err != nil {
+	if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
 		log.Println("kafka error:", err)
 		return err
 	}

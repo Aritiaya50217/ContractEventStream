@@ -35,14 +35,16 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 	}
 
 	event := entity.WorkflowEvent{
-		ID:        workflow.ID,
-		Name:      workflow.Name,
-		Status:    workflow.Status,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		WorkflowID:  workflow.ID,
+		Name:        workflow.Name,
+		Status:      workflow.Status,
+		Type:        "WorkflowApproved",
+		Description: "Workflow approved by user",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	if err := uc.producer.Publish(os.Getenv("KAFKA_APPROVE_TOPIC"), event); err != nil {
+	if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
 		log.Println("kafka error : ", err)
 		return err
 	}

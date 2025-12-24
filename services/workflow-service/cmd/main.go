@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"time"
 	"workflow-service/internal/application/usecase"
 	"workflow-service/internal/config"
 	"workflow-service/internal/infrastructure/kafka"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	kafkago "github.com/segmentio/kafka-go"
 )
 
 func main() {
@@ -19,26 +22,31 @@ func main() {
 		log.Println("No .env file found. ")
 	}
 
-	// Producer
-	kafkaProducer := kafka.NewProducer(
-		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_TOPIC"),
-	)
-
-	// Consumer
-	kafkaConsumer := kafka.NewWorkflowConsumer(
-		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_TOPIC"),
-	)
-
-	// Start consumer in goroutine
-	go kafkaConsumer.Start()
-
+	// Database
 	db := config.NewPostgresDB()
 	repo := postgres.NewWorkflowRepoPg(db)
+	auditRepo := postgres.NewAuditRepoPG(db)
 
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, kafkaProducer)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, kafkaProducer)
+	// Kafka Producer & Consumer
+	kafkaBroker := os.Getenv("KAFKA_BROKER")
+	topic := os.Getenv("KAFKA_TOPIC")
+
+	// Producer เดียวสำหรับ Create + Approve
+	producer := kafka.NewProducer(kafkaBroker, topic)
+
+	// Reader สำหรับ consumer
+	reader := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers: []string{kafkaBroker},
+		Topic:   topic,
+		GroupID: "workflow-audit-consumer",
+	})
+	
+	consumer := kafka.NewWorkflowConsumer(reader, auditRepo)
+	// Start consumer in goroutine
+	go consumer.Start()
+
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer)
 
 	handler := httpHandler.NewHandler(createUsecase, approveUsecase)
 
@@ -50,5 +58,16 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	r.Run(":" + port)
+
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	log.Println("Workflow service running on port", port)
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal("Server failed:", err)
+	}
 }
