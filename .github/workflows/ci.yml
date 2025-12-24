@@ -19,39 +19,26 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------
-      # Verify files
+      # List files for debug
       - name: List workflow-service files
         run: ls -la services/workflow-service
 
       # ----------------------------
-      # Setup Go 1.24 (primary)
+      # Set up Go
       - name: Set up Go 1.24
-        id: go124
         uses: actions/setup-go@v5
-        continue-on-error: true
         with:
           go-version: "1.24"
 
-      # ----------------------------
-      # Fallback to Go 1.22 if 1.24 fails
-      - name: Set up Go 1.22 (fallback)
-        if: steps.go124.outcome == 'failure'
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22.x"
-
-      # ----------------------------
-      # Verify Go version
-      - name: Check Go version
+      - name: Verify Go
         run: go version
 
       # ----------------------------
-      # Change to service directory
+      # Go mod tidy
       - name: Go mod tidy
         working-directory: services/workflow-service
         run: |
-          echo "Current dir: $(pwd)"
-          echo "Listing files:"
+          pwd
           ls -la
           go mod tidy
 
