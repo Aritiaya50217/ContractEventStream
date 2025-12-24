@@ -1,13 +1,29 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
 jobs:
   build-test:
+    name: Build & Test Services
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        service: [workflow-service]
+        service: [workflow-service] # เพิ่ม service ใหม่ได้ที่นี่
 
     steps:
-      - uses: actions/checkout@v4
+      # ----------------------------
+      # Checkout source code
+      - name: Checkout source
+        uses: actions/checkout@v4
 
+      # ----------------------------
+      # Setup Go 1.24 (primary)
       - name: Set up Go 1.24
         id: go124
         uses: actions/setup-go@v5
@@ -15,12 +31,21 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Set up Go 1.22 fallback
+      # ----------------------------
+      # Fallback Go 1.22
+      - name: Set up Go 1.22 (fallback)
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
           go-version: "1.22.x"
 
+      # ----------------------------
+      # Verify Go version
+      - name: Check Go version
+        run: go version
+
+      # ----------------------------
+      # Cache Go modules (per service)
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -30,14 +55,59 @@ jobs:
             ${{ runner.os }}-go-${{ matrix.service }}-
             ${{ runner.os }}-go-
 
-      - name: Download dependencies
+      # ----------------------------
+      # Download dependencies
+      - name: Download Go dependencies
         working-directory: services/${{ matrix.service }}
         run: go mod download
 
+      # ----------------------------
+      # Run tests
       - name: Run tests
         working-directory: services/${{ matrix.service }}
         run: go test ./... -v
 
-      - name: Build
+      # ----------------------------
+      # Build binary
+      - name: Build binary
         working-directory: services/${{ matrix.service }}
         run: go build -v ./cmd/main.go
+
+  docker:
+    name: Docker Build & Push Services
+    needs: build-test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [workflow-service] # เพิ่ม service ใหม่ได้ที่นี่
+
+    steps:
+      # ----------------------------
+      # Checkout source code
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ----------------------------
+      # Docker login
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # ----------------------------
+      # Build Docker image
+      - name: Build Docker Image
+        working-directory: services/${{ matrix.service }}
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest .
+          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+
+      # ----------------------------
+      # Push Docker image
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
