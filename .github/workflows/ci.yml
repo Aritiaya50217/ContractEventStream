@@ -20,12 +20,17 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ---------- DEBUG (สำคัญมาก) ----------
-      - name: Debug working directory
+      # ---------- SAFE DEBUG ----------
+      - name: Debug working directory (safe)
+        continue-on-error: true
         run: |
+          echo "PWD:"
           pwd
+          echo "Files:"
           ls -la
-          ls -la go.mod go.sum
+          echo "Check go.mod:"
+          test -f go.mod && echo "go.mod exists" || echo "go.mod missing"
+          test -f go.sum && echo "go.sum exists" || echo "go.sum missing"
 
       # ---------- GO ----------
       - name: Set up Go 1.24
@@ -40,22 +45,18 @@ jobs:
         run: go build -v ./cmd
 
       # ---------- DOCKER ----------
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-
       - name: Docker build
-        run: |
-          docker build -t workflow-service:ci .
+        run: docker build -t workflow-service:ci .
 
-      - name: Run container (health check)
+      - name: Run container
         run: |
           docker run -d --name workflow-test -p 8080:8080 workflow-service:ci
           sleep 5
           docker ps
-          docker logs workflow-test
+          docker logs workflow-test || true
 
-      - name: Stop container
+      - name: Stop & remove container (never fail)
         if: always()
         run: |
-          docker stop workflow-test
-          docker rm workflow-test
+          docker stop workflow-test || true
+          docker rm workflow-test || true
