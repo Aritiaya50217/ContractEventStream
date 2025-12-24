@@ -9,6 +9,7 @@ on:
 
 jobs:
   build-test:
+    name: Build & Test Services
     runs-on: ubuntu-latest
 
     strategy:
@@ -19,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # ----------------------------
-      # Setup Go (1.24 + fallback)
+      # Setup Go 1.24 primary
       - name: Set up Go 1.24
         id: go124
         uses: actions/setup-go@v5
@@ -27,6 +28,8 @@ jobs:
         with:
           go-version: "1.24"
 
+      # ----------------------------
+      # Fallback Go 1.22
       - name: Set up Go 1.22 (fallback)
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
@@ -36,7 +39,7 @@ jobs:
       - run: go version
 
       # ----------------------------
-      # Cache (อิง service เท่านั้น)
+      # Cache
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -46,16 +49,55 @@ jobs:
             ${{ runner.os }}-go-
 
       # ----------------------------
-      # Download deps (FIXED)
-      - name: Download dependencies
-        run: go mod download -C services/${{ matrix.service }}
+      # Download deps
+      - name: Download Go dependencies
+        working-directory: services/${{ matrix.service }}
+        env:
+          GOMOD: services/${{ matrix.service }}/go.mod
+        run: go mod download
 
       # ----------------------------
-      # Test
+      # Run tests
       - name: Run tests
-        run: go test ./... -v -C services/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        env:
+          GOMOD: services/${{ matrix.service }}/go.mod
+        run: go test ./... -v
 
       # ----------------------------
-      # Build
+      # Build binary
       - name: Build binary
-        run: go build -v ./cmd/main.go -C services/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        env:
+          GOMOD: services/${{ matrix.service }}/go.mod
+        run: go build -v ./cmd/main.go
+
+  docker:
+    name: Docker Build & Push Services
+    needs: build-test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [workflow-service]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        working-directory: services/${{ matrix.service }}
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest .
+          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
