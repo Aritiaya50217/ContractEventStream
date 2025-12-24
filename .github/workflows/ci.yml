@@ -14,97 +14,81 @@ jobs:
 
     steps:
       # ----------------------------
-      # Checkout code
-      - name: Checkout repository
+      # Checkout source
+      - name: Checkout source
         uses: actions/checkout@v4
 
       # ----------------------------
-      # Debug: list files
-      - name: List repo files
-        run: |
-          echo "Root files:"
-          ls -l
-          echo "services/workflow-service files:"
-          ls -l services/workflow-service
-          echo "Check go.mod exists:"
-          if [ -f services/workflow-service/go.mod ]; then
-            echo "✅ go.mod exists"
-          else
-            echo "❌ go.mod NOT found"
-          fi
-
-      # ----------------------------
-      # Set up Go 1.24 with fallback
-      - name: Set up Go 1.24 (primary)
+      # Try Go 1.24 first
+      - name: Set up Go 1.24
         id: go124
         uses: actions/setup-go@v5
         continue-on-error: true
         with:
           go-version: "1.24"
 
-      - name: Fallback Go 1.22
+      # ----------------------------
+      # Fallback to Go 1.22 if 1.24 fails
+      - name: Set up Go 1.22 (fallback)
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
           go-version: "1.22.x"
 
-      - name: Go version
+      # ----------------------------
+      # Verify Go version
+      - name: Check Go version
         run: go version
 
       # ----------------------------
       # Download dependencies
-      - name: Go mod tidy + download
+      - name: Download Go dependencies
         working-directory: services/workflow-service
-        run: |
-          echo "PWD: $(pwd)"
-          echo "Listing files in current directory:"
-          ls -l
-          go mod tidy
-          go mod download
-          echo "Go modules downloaded"
+        run: go mod tidy
 
       # ----------------------------
       # Run tests
       - name: Run tests
         working-directory: services/workflow-service
-        run: |
-          echo "Running tests..."
-          go test ./... -v
+        run: go test ./... -v
 
       # ----------------------------
       # Build binary
       - name: Build binary
         working-directory: services/workflow-service
-        run: |
-          echo "Building binary..."
-          go build -v -o workflow-service ./cmd/main.go
-          echo "Binary build complete"
+        run: go build -v -o workflow-service ./cmd/main.go
 
   docker:
-    name: Docker Build & Push
+    name: Docker Build & Push Workflow Service
     needs: build-test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # ----------------------------
+      # Checkout source
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Docker login
+      # ----------------------------
+      # Docker login
+      - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker image
+      # ----------------------------
+      # Build Docker image
+      - name: Build Docker Image
         working-directory: services/workflow-service
         run: |
-          echo "Building Docker image..."
           docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
           docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
                      ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
 
-      - name: Push Docker image
+      # ----------------------------
+      # Push Docker image
+      - name: Push Docker Image
         run: |
-          echo "Pushing Docker image..."
           docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
