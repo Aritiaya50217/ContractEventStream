@@ -1,17 +1,6 @@
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
-  workflow_dispatch:
-
 jobs:
   build-test:
-    name: Build & Test Services
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         service: [workflow-service]
@@ -19,8 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ----------------------------
-      # Setup Go 1.24 primary
       - name: Set up Go 1.24
         id: go124
         uses: actions/setup-go@v5
@@ -28,76 +15,29 @@ jobs:
         with:
           go-version: "1.24"
 
-      # ----------------------------
-      # Fallback Go 1.22
-      - name: Set up Go 1.22 (fallback)
+      - name: Set up Go 1.22 fallback
         if: steps.go124.outcome == 'failure'
         uses: actions/setup-go@v5
         with:
           go-version: "1.22.x"
 
-      - run: go version
-
-      # ----------------------------
-      # Cache
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles(format('services/{0}/go.sum', matrix.service)) }}
+          key: ${{ runner.os }}-go-${{ matrix.service }}-${{ hashFiles('services/${{ matrix.service }}/go.sum') }}
           restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.service }}-
             ${{ runner.os }}-go-
 
-      # ----------------------------
-      # Download deps
-      - name: Download Go dependencies
+      - name: Download dependencies
         working-directory: services/${{ matrix.service }}
-        env:
-          GOMOD: ${{ github.workspace }}/services/${{ matrix.service }}/go.mod
         run: go mod download
 
-      # ----------------------------
-      # Run tests
       - name: Run tests
         working-directory: services/${{ matrix.service }}
-        env:
-          GOMOD: services/${{ matrix.service }}/go.mod
         run: go test ./... -v
 
-      # ----------------------------
-      # Build binary
-      - name: Build binary
+      - name: Build
         working-directory: services/${{ matrix.service }}
-        env:
-          GOMOD: services/${{ matrix.service }}/go.mod
         run: go build -v ./cmd/main.go
-
-  docker:
-    name: Docker Build & Push Services
-    needs: build-test
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        service: [workflow-service]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker Image
-        working-directory: services/${{ matrix.service }}
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest \
-                     ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
-
-      - name: Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
