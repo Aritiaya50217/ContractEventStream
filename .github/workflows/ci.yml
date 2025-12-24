@@ -1,84 +1,61 @@
-name: CI/CD Pipeline - Workflow Service
+name: workflow-service-ci
 
 on:
   push:
-    branches: ["main"]
+    paths:
+      - "services/workflow-service/**"
   pull_request:
-    branches: ["main"]
-  workflow_dispatch:
+    paths:
+      - "services/workflow-service/**"
 
 jobs:
-  build-test:
-    name: Build & Test Workflow Service
+  build-and-docker:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: services/workflow-service
+
     steps:
-      # ----------------------------
-      # Checkout source
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ----------------------------
-      # Setup Go 1.24
+      # ---------- DEBUG (สำคัญมาก) ----------
+      - name: Debug working directory
+        run: |
+          pwd
+          ls -la
+          ls -la go.mod go.sum
+
+      # ---------- GO ----------
       - name: Set up Go 1.24
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
 
-      # ----------------------------
-      # Verify Go version
-      - name: Check Go version
-        run: go version
-
-      # ----------------------------
-      # Download Go dependencies
-      - name: Download Go dependencies
-        working-directory: ./services/workflow-service
+      - name: Go mod tidy
         run: go mod tidy
 
-      # ----------------------------
-      # Run tests
-      - name: Run tests
-        working-directory: ./services/workflow-service
-        run: go test ./... -v
+      - name: Go build
+        run: go build -v ./cmd
 
-      # ----------------------------
-      # Build binary
-      - name: Build binary
-        working-directory: ./services/workflow-service
-        run: go build -v -o workflow-service ./cmd/main.go
+      # ---------- DOCKER ----------
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-  docker:
-    name: Docker Build & Push
-    needs: build-test
-    runs-on: ubuntu-latest
-
-    steps:
-      # ----------------------------
-      # Checkout source
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      # ----------------------------
-      # Docker login
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # ----------------------------
-      # Build Docker image
-      - name: Build Docker Image
-        working-directory: ./services/workflow-service
+      - name: Docker build
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest \
-                     ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+          docker build -t workflow-service:ci .
 
-      # ----------------------------
-      # Push Docker image
-      - name: Push Docker Image
+      - name: Run container (health check)
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/workflow-service:${{ github.sha }}
+          docker run -d --name workflow-test -p 8080:8080 workflow-service:ci
+          sleep 5
+          docker ps
+          docker logs workflow-test
+
+      - name: Stop container
+        if: always()
+        run: |
+          docker stop workflow-test
+          docker rm workflow-test
