@@ -53,7 +53,7 @@ jobs:
       - name: Download Go dependencies
         working-directory: services/${{ matrix.service }}
         env:
-          GOMOD: services/${{ matrix.service }}/go.mod
+          GOMOD: ${{ github.workspace }}/services/${{ matrix.service }}/go.mod
         run: go mod download
 
       # ----------------------------
