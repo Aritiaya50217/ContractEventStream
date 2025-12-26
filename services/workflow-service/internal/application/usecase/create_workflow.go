@@ -11,10 +11,11 @@ import (
 type CreateWorkflowUsecase struct {
 	repo     repository.WorkflowRepository
 	producer *kafka.Producer
+	cache    repository.WorkflowCache
 }
 
-func NewCreateWorkflowUsecase(r repository.WorkflowRepository, p *kafka.Producer) *CreateWorkflowUsecase {
-	return &CreateWorkflowUsecase{repo: r, producer: p}
+func NewCreateWorkflowUsecase(r repository.WorkflowRepository, p *kafka.Producer, c repository.WorkflowCache) *CreateWorkflowUsecase {
+	return &CreateWorkflowUsecase{repo: r, producer: p, cache: c}
 }
 
 func (uc *CreateWorkflowUsecase) Create(name string) error {
@@ -26,6 +27,12 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 	// save to DB
 	if err := uc.repo.Create(workflow); err != nil {
 		log.Println("create error:", err)
+		return err
+	}
+
+	// cache
+	if err := uc.cache.Set(workflow); err != nil {
+		log.Println("cache error : ", err)
 		return err
 	}
 

@@ -10,10 +10,11 @@ import (
 type Handler struct {
 	createUsecase  *usecase.CreateWorkflowUsecase
 	approveUsecase *usecase.ApproveWorkflowUsecase
+	getUsecase     *usecase.GetWorkflowUsecase
 }
 
-func NewHandler(create *usecase.CreateWorkflowUsecase, approve *usecase.ApproveWorkflowUsecase) *Handler {
-	return &Handler{createUsecase: create, approveUsecase: approve}
+func NewHandler(create *usecase.CreateWorkflowUsecase, approve *usecase.ApproveWorkflowUsecase, getUsecase *usecase.GetWorkflowUsecase) *Handler {
+	return &Handler{createUsecase: create, approveUsecase: approve, getUsecase: getUsecase}
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -40,4 +41,16 @@ func (h *Handler) Approve(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "approved"})
+}
+
+func (h *Handler) GetWorkflow(c *gin.Context) {
+	id := c.Param("id")
+
+	// cache
+	workflow, err := h.getUsecase.GetByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		return
+	}
+	c.JSON(http.StatusOK, workflow)
 }

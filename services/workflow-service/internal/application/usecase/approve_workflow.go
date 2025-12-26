@@ -12,10 +12,11 @@ import (
 type ApproveWorkflowUsecase struct {
 	repo     repository.WorkflowRepository
 	producer *kafka.Producer
+	cache    repository.WorkflowCache
 }
 
-func NewApproveWorkflowUsecase(r repository.WorkflowRepository, p *kafka.Producer) *ApproveWorkflowUsecase {
-	return &ApproveWorkflowUsecase{repo: r, producer: p}
+func NewApproveWorkflowUsecase(r repository.WorkflowRepository, p *kafka.Producer, c repository.WorkflowCache) *ApproveWorkflowUsecase {
+	return &ApproveWorkflowUsecase{repo: r, producer: p, cache: c}
 }
 
 func (uc *ApproveWorkflowUsecase) Approve(id string) error {
@@ -31,6 +32,12 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 	// save to DB
 	if err := uc.repo.Update(workflow); err != nil {
 		log.Println("update error : ", err)
+		return err
+	}
+
+	// invalidate cache
+	if err := uc.cache.Delete(id); err != nil {
+		log.Println("cache error : ", err)
 		return err
 	}
 

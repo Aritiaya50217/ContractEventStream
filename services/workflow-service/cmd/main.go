@@ -9,6 +9,7 @@ import (
 	"workflow-service/internal/config"
 	"workflow-service/internal/infrastructure/kafka"
 	"workflow-service/internal/infrastructure/postgres"
+	"workflow-service/internal/infrastructure/redis"
 	httpHandler "workflow-service/internal/interface/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,10 @@ func main() {
 	repo := postgres.NewWorkflowRepoPg(db)
 	auditRepo := postgres.NewAuditRepoPG(db)
 
+	// redis cache
+	redisClient := redis.NewRedisClient()
+	workflowCache := redis.NewWorkflowCache(redisClient)
+
 	// Kafka Producer & Consumer
 	kafkaBroker := os.Getenv("KAFKA_BROKER")
 	topic := os.Getenv("KAFKA_TOPIC")
@@ -40,15 +45,16 @@ func main() {
 		Topic:   topic,
 		GroupID: "workflow-audit-consumer",
 	})
-	
+
 	consumer := kafka.NewWorkflowConsumer(reader, auditRepo)
 	// Start consumer in goroutine
 	go consumer.Start()
 
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer)
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer,workflowCache)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer,workflowCache)
+	getWorkflowUsecase := usecase.NewGetWorkflowUsecase(repo, workflowCache)
 
-	handler := httpHandler.NewHandler(createUsecase, approveUsecase)
+	handler := httpHandler.NewHandler(createUsecase, approveUsecase, getWorkflowUsecase)
 
 	r := gin.Default()
 	r.POST("/workflows/create", handler.Create)

@@ -75,6 +75,13 @@ services:
     # restart: unless-stopped  
     restart: always
 
+  redis:
+  image: redis:7
+  container_name: workflow-redis
+  ports:
+    - "6379:6379"
+
+
 volumes:
   pgdata:
   kafka-data:
