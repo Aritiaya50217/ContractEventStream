@@ -59,6 +59,7 @@ func main() {
 	r := gin.Default()
 	r.POST("/workflows/create", handler.Create)
 	r.POST("/workflows/approve/:id", handler.Approve)
+	r.GET("/workflows/:id", handler.GetWorkflow)
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {
