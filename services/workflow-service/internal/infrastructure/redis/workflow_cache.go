@@ -24,7 +24,7 @@ func NewWorkflowCache(client *redis.Client) *WorkflowCache {
 }
 
 func (c *WorkflowCache) key(id string) string {
-	return fmt.Sprintf("workflow:%d", id)
+	return fmt.Sprintf("workflow:%v", id)
 }
 
 func (c *WorkflowCache) Get(id string) (*entity.Workflow, error) {
