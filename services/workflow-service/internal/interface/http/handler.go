@@ -45,7 +45,6 @@ func (h *Handler) Approve(c *gin.Context) {
 
 func (h *Handler) GetWorkflow(c *gin.Context) {
 	id := c.Param("id")
-
 	// cache
 	workflow, err := h.getUsecase.GetByID(id)
 	if err != nil {

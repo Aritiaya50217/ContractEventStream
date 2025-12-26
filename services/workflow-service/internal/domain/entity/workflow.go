@@ -6,7 +6,7 @@ import (
 )
 
 type Workflow struct {
-	ID        uint   `gorm:"primaryKey"`
+	ID        uint   `gorm:"primaryKey"` 
 	Name      string `gorm:"type:varchar(255);not null"`
 	Status    string `gorm:"type:varchar(50);not null"`
 	CreatedAt time.Time

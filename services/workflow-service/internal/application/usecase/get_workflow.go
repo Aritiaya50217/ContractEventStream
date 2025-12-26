@@ -21,7 +21,7 @@ func NewGetWorkflowUsecase(repo repository.WorkflowRepository, cache repository.
 func (uc *GetWorkflowUsecase) GetByID(id string) (*entity.Workflow, error) {
 	// cache
 	if workflow, err := uc.cache.Get(id); err != nil {
-		return workflow, nil
+		return workflow, err
 	}
 
 	// db

@@ -35,9 +35,14 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 		return err
 	}
 
-	// invalidate cache
+	// refresh cache (delete + set)
 	if err := uc.cache.Delete(id); err != nil {
-		log.Println("cache error : ", err)
+		log.Println("cache delete error:", err)
+		return err
+	}
+
+	if err := uc.cache.Set(workflow); err != nil {
+		log.Println("cache set error:", err)
 		return err
 	}
 

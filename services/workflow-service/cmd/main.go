@@ -50,8 +50,8 @@ func main() {
 	// Start consumer in goroutine
 	go consumer.Start()
 
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer,workflowCache)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer,workflowCache)
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer, workflowCache)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer, workflowCache)
 	getWorkflowUsecase := usecase.NewGetWorkflowUsecase(repo, workflowCache)
 
 	handler := httpHandler.NewHandler(createUsecase, approveUsecase, getWorkflowUsecase)
