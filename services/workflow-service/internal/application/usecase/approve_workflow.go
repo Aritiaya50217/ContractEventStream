@@ -1,22 +1,23 @@
 package usecase
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"time"
 	"workflow-service/internal/domain/entity"
 	"workflow-service/internal/domain/repository"
-	"workflow-service/internal/infrastructure/kafka"
 )
 
 type ApproveWorkflowUsecase struct {
-	repo     repository.WorkflowRepository
-	producer *kafka.Producer
-	cache    repository.WorkflowCache
+	repo repository.WorkflowRepository
+	// producer *kafka.Producer
+	publisher repository.EventPublisher
+	cache     repository.WorkflowCache
 }
 
-func NewApproveWorkflowUsecase(r repository.WorkflowRepository, p *kafka.Producer, c repository.WorkflowCache) *ApproveWorkflowUsecase {
-	return &ApproveWorkflowUsecase{repo: r, producer: p, cache: c}
+func NewApproveWorkflowUsecase(r repository.WorkflowRepository, p repository.EventPublisher, c repository.WorkflowCache) *ApproveWorkflowUsecase {
+	return &ApproveWorkflowUsecase{repo: r, publisher: p, cache: c}
 }
 
 func (uc *ApproveWorkflowUsecase) Approve(id string) error {
@@ -36,15 +37,8 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 	}
 
 	// refresh cache (delete + set)
-	if err := uc.cache.Delete(id); err != nil {
-		log.Println("cache delete error:", err)
-		return err
-	}
-
-	if err := uc.cache.Set(workflow); err != nil {
-		log.Println("cache set error:", err)
-		return err
-	}
+	_ = uc.cache.Delete(id)
+	_ = uc.cache.Set(workflow)
 
 	event := entity.WorkflowEvent{
 		WorkflowID:  workflow.ID,
@@ -56,10 +50,18 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 		UpdatedAt:   time.Now(),
 	}
 
-	if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
-		log.Println("kafka error : ", err)
+	// if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
+	// 	log.Println("kafka error : ", err)
+	// 	return err
+	// }
+
+	payload, err := json.Marshal(event)
+	if err != nil {
 		return err
 	}
 
+	if err := uc.publisher.Publish(os.Getenv("KAFKA_TOPIC"), payload); err != nil {
+		return err
+	}
 	return nil
 }

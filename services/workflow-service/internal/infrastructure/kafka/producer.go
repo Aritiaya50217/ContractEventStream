@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -68,19 +67,10 @@ func (p *Producer) ensureTopicExists() error {
 }
 
 // push message
-func (p *Producer) Publish(key string, value interface{}) error {
-	if p == nil || p.writer == nil {
-		return fmt.Errorf("kafka producer not initialized")
+func (p *Producer) Publish(topic string, payload []byte) error {
+	message := kafka.Message{
+		Key:   []byte(time.Now().String()),
+		Value: payload,
 	}
-	messageBytes, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-
-	return p.writer.WriteMessages(context.Background(),
-		kafka.Message{
-			Key:   []byte(key),
-			Value: messageBytes,
-			Time:  time.Now(),
-		})
+	return p.writer.WriteMessages(context.Background(), message)
 }
