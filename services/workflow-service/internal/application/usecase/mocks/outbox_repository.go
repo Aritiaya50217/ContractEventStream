@@ -17,9 +17,6 @@ func (m *OutboxRepository) Create(e *entity.OutboxEvent) error {
 
 func (m *OutboxRepository) FindPending(limit int) ([]entity.OutboxEvent, error) {
 	args := m.Called(limit)
-	if len(args) == 0 {
-		return []entity.OutboxEvent{}, nil
-	}
 	return args.Get(0).([]entity.OutboxEvent), args.Error(1)
 
 }
