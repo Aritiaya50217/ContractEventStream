@@ -3,7 +3,6 @@ package usecase
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"time"
 	"workflow-service/internal/domain/entity"
 	"workflow-service/internal/domain/repository"
@@ -12,12 +11,13 @@ import (
 type ApproveWorkflowUsecase struct {
 	repo repository.WorkflowRepository
 	// producer *kafka.Producer
-	publisher repository.EventPublisher
-	cache     repository.WorkflowCache
+	// publisher repository.EventPublisher
+	cache      repository.WorkflowCache
+	outboxRepo repository.OutboxRepository
 }
 
-func NewApproveWorkflowUsecase(r repository.WorkflowRepository, p repository.EventPublisher, c repository.WorkflowCache) *ApproveWorkflowUsecase {
-	return &ApproveWorkflowUsecase{repo: r, publisher: p, cache: c}
+func NewApproveWorkflowUsecase(r repository.WorkflowRepository, c repository.WorkflowCache, o repository.OutboxRepository) *ApproveWorkflowUsecase {
+	return &ApproveWorkflowUsecase{repo: r, cache: c, outboxRepo: o}
 }
 
 func (uc *ApproveWorkflowUsecase) Approve(id string) error {
@@ -50,17 +50,19 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 		UpdatedAt:   time.Now(),
 	}
 
-	// if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
-	// 	log.Println("kafka error : ", err)
-	// 	return err
-	// }
-
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	if err := uc.publisher.Publish(os.Getenv("KAFKA_TOPIC"), payload); err != nil {
+	outboxEvent := &entity.OutboxEvent{
+		Aggregate: "workflow",
+		EventType: "WorkflowApproved",
+		Payload:   payload,
+		Status:    "PENDING",
+	}
+
+	if err := uc.outboxRepo.Create(outboxEvent); err != nil {
 		return err
 	}
 	return nil

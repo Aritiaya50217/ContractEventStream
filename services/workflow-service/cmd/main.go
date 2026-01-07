@@ -27,6 +27,7 @@ func main() {
 	db := config.NewPostgresDB()
 	repo := postgres.NewWorkflowRepoPg(db)
 	auditRepo := postgres.NewAuditRepoPG(db)
+	outboxRepo := postgres.NewOutboxRepoPG(db)
 
 	// redis cache
 	redisClient := redis.NewRedisClient()
@@ -50,8 +51,11 @@ func main() {
 	// Start consumer in goroutine
 	go consumer.Start()
 
+	outboxWorker := kafka.NewOutboxWorker(outboxRepo, *producer, topic)
+	go outboxWorker.Start()
+
 	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer, workflowCache)
-	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, producer, workflowCache)
+	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, workflowCache, outboxRepo)
 	getWorkflowUsecase := usecase.NewGetWorkflowUsecase(repo, workflowCache)
 
 	handler := httpHandler.NewHandler(createUsecase, approveUsecase, getWorkflowUsecase)

@@ -31,11 +31,15 @@ func NewPostgresDB() *gorm.DB {
 
 	// AutoMigrate entities
 	if err := db.AutoMigrate(&entity.Workflow{}); err != nil {
-		log.Fatalf("failed to auto-migrate: %v", err)
+		log.Fatalf("failed to auto-migrate workflow: %v", err)
 	}
 
 	if err := db.AutoMigrate(&entity.AuditLog{}); err != nil {
-		log.Fatalf("failed to auto-migrate: %v", err)
+		log.Fatalf("failed to auto-migrate auditLog: %v", err)
+	}
+
+	if err := db.AutoMigrate(&entity.OutboxEvent{}); err != nil {
+		log.Fatalf("failed to auto-migrate outboxEvent: %v", err)
 	}
 
 	log.Println("database connected and migrated successfully")

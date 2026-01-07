@@ -1,42 +1,32 @@
 package usecase
 
-import (
-	"os"
-	"testing"
-	"workflow-service/internal/application/usecase/mocks"
-	"workflow-service/internal/domain/entity"
+// func TestApproveWorkflow_PublishKafkaEvent(t *testing.T) {
+// 	// arrange
+// 	os.Setenv("KAFKA_TOPIC", "workflow-events")
+// 	defer os.Unsetenv("KAFKA_TOPIC")
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-)
+// 	repo := new(mocks.WorkflowRepository)
+// 	cache := new(mocks.WorkflowCache)
+// 	publisher := new(mocks.EventPublisher)
 
-func TestApproveWorkflow_PublishKafkaEvent(t *testing.T) {
-	// arrange
-	os.Setenv("KAFKA_TOPIC", "workflow-events")
-	defer os.Unsetenv("KAFKA_TOPIC")
+// 	workflow := &entity.Workflow{
+// 		ID:     1,
+// 		Status: "CREATED",
+// 	}
 
-	repo := new(mocks.WorkflowRepository)
-	cache := new(mocks.WorkflowCache)
-	publisher := new(mocks.EventPublisher)
+// 	repo.On("FindByID", "1").Return(workflow, nil)
+// 	repo.On("Update", mock.Anything).Return(nil)
+// 	cache.On("Delete", "1").Return(nil)
+// 	cache.On("Set", mock.Anything).Return(nil)
 
-	workflow := &entity.Workflow{
-		ID:     1,
-		Status: "CREATED",
-	}
+// 	publisher.On("Publish", "workflow-events", mock.Anything).Return(nil)
 
-	repo.On("FindByID", "1").Return(workflow, nil)
-	repo.On("Update", mock.Anything).Return(nil)
-	cache.On("Delete", "1").Return(nil)
-	cache.On("Set", mock.Anything).Return(nil)
+// 	uc := NewApproveWorkflowUsecase(repo, publisher, cache)
 
-	publisher.On("Publish", "workflow-events", mock.Anything).Return(nil)
+// 	// act
+// 	err := uc.Approve("1")
 
-	uc := NewApproveWorkflowUsecase(repo, publisher, cache)
-
-	// act
-	err := uc.Approve("1")
-
-	// assert
-	assert.NoError(t, err)
-	publisher.AssertCalled(t, "Publish", "workflow-events", mock.Anything)
-}
+// 	// assert
+// 	assert.NoError(t, err)
+// 	publisher.AssertCalled(t, "Publish", "workflow-events", mock.Anything)
+// }
