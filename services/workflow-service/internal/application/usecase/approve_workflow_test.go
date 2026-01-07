@@ -5,6 +5,7 @@ import (
 	"workflow-service/internal/application/usecase/mocks"
 	"workflow-service/internal/domain/entity"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,4 +31,15 @@ func TestApproveWorkflow_SuccessOutboxEvent(t *testing.T) {
 			e.Status == "PENDING"
 	})).Return(nil)
 
+	uc := NewApproveWorkflowUsecase(repo, cache, outbox)
+
+	// act
+	err := uc.Approve("1")
+
+	// assert
+	assert.NoError(t, err)
+
+	repo.AssertCalled(t, "Update", mock.Anything)
+	outbox.AssertCalled(t, "Create", mock.Anything)
+	cache.AssertCalled(t, "Delete", "1")
 }
