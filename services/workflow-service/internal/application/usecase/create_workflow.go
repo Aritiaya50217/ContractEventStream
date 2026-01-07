@@ -3,20 +3,19 @@ package usecase
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"workflow-service/internal/domain/entity"
 	"workflow-service/internal/domain/repository"
 )
 
 type CreateWorkflowUsecase struct {
 	repo repository.WorkflowRepository
-	// producer *kafka.Producer
-	publisher repository.EventPublisher
-	cache     repository.WorkflowCache
+	// publisher repository.EventPublisher
+	cache      repository.WorkflowCache
+	outboxRepo repository.OutboxRepository
 }
 
-func NewCreateWorkflowUsecase(r repository.WorkflowRepository, p repository.EventPublisher, c repository.WorkflowCache) *CreateWorkflowUsecase {
-	return &CreateWorkflowUsecase{repo: r, publisher: p, cache: c}
+func NewCreateWorkflowUsecase(r repository.WorkflowRepository, c repository.WorkflowCache, o repository.OutboxRepository) *CreateWorkflowUsecase {
+	return &CreateWorkflowUsecase{repo: r, cache: c, outboxRepo: o}
 }
 
 func (uc *CreateWorkflowUsecase) Create(name string) error {
@@ -31,12 +30,7 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 		return err
 	}
 
-	// cache
-	if err := uc.cache.Set(workflow); err != nil {
-		log.Println("cache error : ", err)
-		return err
-	}
-
+	// create outbox event (แทน kafka)
 	event := entity.WorkflowEvent{
 		WorkflowID:  workflow.ID,
 		Name:        workflow.Name,
@@ -47,17 +41,25 @@ func (uc *CreateWorkflowUsecase) Create(name string) error {
 		UpdatedAt:   workflow.UpdatedAt,
 	}
 
-	// if err := uc.producer.Publish(os.Getenv("KAFKA_TOPIC"), event); err != nil {
-	// 	log.Println("kafka error:", err)
-	// 	return err
-	// }
-
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	if err := uc.publisher.Publish(os.Getenv("KAFKA_TOPIC"), payload); err != nil {
+	outbox := &entity.OutboxEvent{
+		Aggregate: "workflow",
+		EventType: "WorkflowCreated",
+		Payload:   payload,
+		Status:    "PENDING",
+	}
+
+	if err := uc.outboxRepo.Create(outbox); err != nil {
+		return err
+	}
+
+	// cache
+	if err := uc.cache.Set(workflow); err != nil {
+		log.Println("cache error : ", err)
 		return err
 	}
 

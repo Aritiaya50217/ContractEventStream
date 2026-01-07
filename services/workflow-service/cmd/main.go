@@ -51,10 +51,10 @@ func main() {
 	// Start consumer in goroutine
 	go consumer.Start()
 
-	outboxWorker := kafka.NewOutboxWorker(outboxRepo, *producer, topic)
+	outboxWorker := kafka.NewOutboxWorker(outboxRepo, producer)
 	go outboxWorker.Start()
 
-	createUsecase := usecase.NewCreateWorkflowUsecase(repo, producer, workflowCache)
+	createUsecase := usecase.NewCreateWorkflowUsecase(repo, workflowCache, outboxRepo)
 	approveUsecase := usecase.NewApproveWorkflowUsecase(repo, workflowCache, outboxRepo)
 	getWorkflowUsecase := usecase.NewGetWorkflowUsecase(repo, workflowCache)
 

@@ -9,9 +9,7 @@ import (
 )
 
 type ApproveWorkflowUsecase struct {
-	repo repository.WorkflowRepository
-	// producer *kafka.Producer
-	// publisher repository.EventPublisher
+	repo       repository.WorkflowRepository
 	cache      repository.WorkflowCache
 	outboxRepo repository.OutboxRepository
 }
@@ -35,10 +33,6 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 		log.Println("update error : ", err)
 		return err
 	}
-
-	// refresh cache (delete + set)
-	_ = uc.cache.Delete(id)
-	_ = uc.cache.Set(workflow)
 
 	event := entity.WorkflowEvent{
 		WorkflowID:  workflow.ID,
@@ -65,5 +59,10 @@ func (uc *ApproveWorkflowUsecase) Approve(id string) error {
 	if err := uc.outboxRepo.Create(outboxEvent); err != nil {
 		return err
 	}
+
+	// refresh cache (delete + set)
+	_ = uc.cache.Delete(id)
+	_ = uc.cache.Set(workflow)
+
 	return nil
 }
