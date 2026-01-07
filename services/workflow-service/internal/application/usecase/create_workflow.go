@@ -8,8 +8,7 @@ import (
 )
 
 type CreateWorkflowUsecase struct {
-	repo repository.WorkflowRepository
-	// publisher repository.EventPublisher
+	repo       repository.WorkflowRepository
 	cache      repository.WorkflowCache
 	outboxRepo repository.OutboxRepository
 }

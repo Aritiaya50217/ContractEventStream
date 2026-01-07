@@ -1,32 +1,33 @@
 package usecase
 
-// func TestApproveWorkflow_PublishKafkaEvent(t *testing.T) {
-// 	// arrange
-// 	os.Setenv("KAFKA_TOPIC", "workflow-events")
-// 	defer os.Unsetenv("KAFKA_TOPIC")
+import (
+	"testing"
+	"workflow-service/internal/application/usecase/mocks"
+	"workflow-service/internal/domain/entity"
 
-// 	repo := new(mocks.WorkflowRepository)
-// 	cache := new(mocks.WorkflowCache)
-// 	publisher := new(mocks.EventPublisher)
+	"github.com/stretchr/testify/mock"
+)
 
-// 	workflow := &entity.Workflow{
-// 		ID:     1,
-// 		Status: "CREATED",
-// 	}
+func TestApproveWorkflow_SuccessOutboxEvent(t *testing.T) {
+	// arrage
+	repo := new(mocks.WorkflowRepository)
+	cache := new(mocks.WorkflowCache)
+	outbox := new(mocks.OutboxRepository)
 
-// 	repo.On("FindByID", "1").Return(workflow, nil)
-// 	repo.On("Update", mock.Anything).Return(nil)
-// 	cache.On("Delete", "1").Return(nil)
-// 	cache.On("Set", mock.Anything).Return(nil)
+	workflow := &entity.Workflow{
+		ID:     1,
+		Status: "CREATED",
+	}
 
-// 	publisher.On("Publish", "workflow-events", mock.Anything).Return(nil)
+	repo.On("FindByID", "1").Return(workflow, nil)
+	repo.On("Update", mock.Anything).Return(nil)
 
-// 	uc := NewApproveWorkflowUsecase(repo, publisher, cache)
+	cache.On("Delete", "1").Return(nil)
+	cache.On("Set", mock.Anything).Return(nil)
 
-// 	// act
-// 	err := uc.Approve("1")
+	outbox.On("Create", mock.MatchedBy(func(e *entity.OutboxEvent) bool {
+		return e.EventType == "WorkflowApproved" &&
+			e.Status == "PENDING"
+	})).Return(nil)
 
-// 	// assert
-// 	assert.NoError(t, err)
-// 	publisher.AssertCalled(t, "Publish", "workflow-events", mock.Anything)
-// }
+}

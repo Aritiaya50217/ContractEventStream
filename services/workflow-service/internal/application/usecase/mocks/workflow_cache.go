@@ -12,10 +12,7 @@ type WorkflowCache struct {
 
 func (m *WorkflowCache) Get(id string) (*entity.Workflow, error) {
 	args := m.Called(id)
-	if w := args.Get(0); w != nil {
-		return w.(*entity.Workflow), args.Error(1)
-	}
-	return nil, args.Error(1)
+	return args.Get(0).(*entity.Workflow), args.Error(1)
 
 }
 
